@@ -1,5 +1,6 @@
 from google.appengine.ext import webapp, db
 import app3
+from app3.exceptions import InvalidMethodError, ResourceNotFoundError, InvalidResourceError, InvalidPathError
 
 # For serializing the result:
 from django.utils import simplejson
@@ -37,30 +38,60 @@ class RestHandler(webapp.RequestHandler, app3.Dispatcher):
             del params["format"]
         else:
             format = "text"
-            
-        obj = self.dispatch(self.request.path, self.request.method, params)
-        obj = self.flatten(obj)
+        
+        resource = None
+        try:
+            resource = self.dispatch(self.request.path, self.request.method, params)
+        
+        except ResourceNotFoundError, e:
+            self.error(404)
+            resource = e.error
+        
+        except InvalidMethodError, e:
+            self.error(500)
+            resouce = e.error
+        
+        except InvalidResourceError, e:
+            self.error(404)
+            resource = e.error
+        
+        except InvalidMethodError, e:
+            self.error(500)
+            resouce = e.error
+        
+        except InvalidPathError, e:
+            self.error(404)
+            resource = e.error
+        
+        except Exception, e:
+            self.error(500)
+            resource = e.error
+        
+        resource = self.flatten(resource)
         
         if format == "json":
             self.response.headers["Content-Type"] = "application/json"
-            out = simplejson.dumps(obj)
-            
+            out = simplejson.dumps(resource)
+        
         elif format == "yaml":
             self.response.headers["Content-Type"] = "text/yaml"
-            out = yaml.safe_dump(obj)
-            
+            out = yaml.safe_dump(resource)
+        
         elif format == "python":
             self.response.headers["Content-Type"] = "text/python"
-            out = str(obj)
-            
-        elif format == "text":
+            out = str(resource)
+        
+        else:
             self.response.headers["Content-Type"] = "text/plain"
-            out = str(obj)
-            
+            out = str(resource)
+        
         self.response.out.write(out)
     
     def flatten(self, obj, depth=0):
         """
+        Thank you to the author at http://python-rest.googlecode.com for this.
+        It was licensed as Apache v 2, so please use with care.
+        
         Recursively flattens objects to a serializable form:
             datetime.datetime -> iso formatted date string
             db.users.User -> user nickname
@@ -73,6 +104,7 @@ class RestHandler(webapp.RequestHandler, app3.Dispatcher):
         
         Reference:
             http://code.google.com/appengine/docs/datastore/typesandpropertyclasses.html
+            http://python-rest.googlecode.com
         
         """
         if isinstance(obj, datetime.datetime):
