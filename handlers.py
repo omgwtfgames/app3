@@ -10,7 +10,7 @@ import datetime
 import types
 import os
 
-class RestHandler(webapp.RequestHandler, rest.Dispatcher):
+class RestHandler(webapp.RequestHandler, app3.Dispatcher):
     """
     Responsible for returning the correct data to the user.
     """
@@ -87,7 +87,7 @@ class RestHandler(webapp.RequestHandler, rest.Dispatcher):
         elif isinstance(obj, types.ListType):
             return [self.flatten(item, depth+1) for item in obj]
         
-        elif isinstance(obj, (types.DictType, rest.Resource)):
+        elif isinstance(obj, (types.DictType, app3.Resource)):
             copy = {}
             for key in obj:
                 copy[key] = self.flatten(obj[key], depth+1)

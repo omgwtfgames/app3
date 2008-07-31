@@ -1,7 +1,7 @@
 from google.appengine.ext import db
 import app3
 
-class ResourceModel(rest.Resource, db.Expando):
+class ResourceModel(app3.Resource, db.Expando):
     """
     A REST Resource wrapper around an AppEngine model
     """
