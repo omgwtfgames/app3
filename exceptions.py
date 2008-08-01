@@ -27,3 +27,6 @@ class ResourceNotFoundError(Error):
 
 class InvalidPathError(Error):
     error_type = 'InvalidPathError'
+    
+class PermissionDeniedError(Error):
+    error_type = 'PermissionDeniedError'
