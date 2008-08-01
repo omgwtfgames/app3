@@ -92,7 +92,7 @@ class ResourceModel(app3.Resource, db.Expando):
         Deletes this object from the data store.
         """
         if self.public_write or request.authenticate():
-            super(ResourceModel, self).delete(*args, **kwargs)
+            super(ResourceModel, self).delete()
             
             return True
         
