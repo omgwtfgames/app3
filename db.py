@@ -1,9 +1,10 @@
 from google.appengine.ext import db
 import app3
+from app3.exceptions import PermissionDeniedError
 
 __all__ = ["ResourceModel"]
 
-RESTRICTED_PROPERTIES = ('id', 'app3_perms', 'app3_auth', )
+RESTRICTED_PROPERTIES = ('id', )
 
 class Permissions(db.Model):
     """
@@ -20,8 +21,9 @@ class ResourceModel(app3.Resource, db.Expando):
     # -------------------
     # Permission Settings
     # -------------------
-    public_read = False
+    public_read = True
     public_write = False
+    secret_key = None
     
     # -----------------
     # Common Properties
@@ -35,87 +37,115 @@ class ResourceModel(app3.Resource, db.Expando):
     # -------------
     
     @classmethod
-    def new(cls, id, *args, **kwargs):
+    def new(cls, request, id):
         """
         Default `new` method. Takes all the kwargs provided
         and pushes them into the database.
         """
         # Must have data to put:
-        if not kwargs: return False
+        if not request.params: return False
         
-        resource = cls()
-        # Set the ID
-        resource.id = id
+        if cls.public_write or request.authenticate():
+            resource = cls()
+            # Set the ID
+            resource.id = id
+            
+            # Save the Permissions with class defaults:
+            resource.app3_perms = Permissions(
+                public_read = cls.public_read,
+                public_write = cls.public_write,
+                ).put()
+            
+            # Assign the other values:
+            for key, value in request.params.items():
+                if not key in RESTRICTED_PROPERTIES: 
+                    setattr(resource, key, value)
+            
+            # Save the resource:
+            resource.put()
+            
+            return True
         
-        # Save the Permissions with class defaults:
-        resource.app3_perms = Permissions(
-            public_read = cls.public_read,
-            public_write = cls.public_write,
-            ).put()
-        
-        # Assign the other values:
-        for key, value in kwargs.items():
-            if not key in RESTRICTED_PROPERTIES: 
-                setattr(resource, key, value)
-        
-        # Save the resource:
-        resource.put()
-        
-        return True
+        else:
+            raise PermissionDeniedError(request)
 
-    def update(self, *args, **kwargs):
+    def update(self, request):
         # Nothing to update, short circuit:
-        if not kwargs: return True
+        if self.public_write or request.authenticate():
+            if not request.params: return True
+            
+            # Assign all values:
+            for key, value in request.params.items():
+                if not key in RESTRICTED_PROPERTIES: 
+                    setattr(self, key, value)
+            
+            # Save the resource:
+            self.put()
+            
+            return True
         
-        # Assign all values:
-        for key, value in kwargs.items():
-            if not key in RESTRICTED_PROPERTIES: 
-                setattr(self, key, value)
-        
-        # Save the resource:
-        self.put()
-        
-        return True
+        else:
+            raise PermissionDeniedError(request)
     
-    def delete(self, *args, **kwargs):
+    def delete(self, request):
         """
         Deletes this object from the data store.
         """
-        super(ResourceModel, self).delete(**kwargs)
+        if self.public_write or request.authenticate():
+            super(ResourceModel, self).delete(*args, **kwargs)
+            
+            return True
         
-        return True
+        else:
+            raise PermissionDeniedError(request)
     
     # ------------
     # Read Methods
     # ------------
     
-    def get(self, *args, **kwargs):
+    def get(self, request):
         """
         Default `get` method. Simply returns the object itself.
         """
-        return self
+        if self.public_read or request.authenticate():
+            return self
+        else:
+            raise PermissionDeniedError(request)
 
     @classmethod
-    def exists(cls, id):
+    def exists(cls, request, id):
         """
         Returns whether the object exists or not
+        
+        Not exposed via API, used internally only.
         """
-        return cls.retrieve(id) == None
-    
+        if cls.public_read or request.authenticate():
+            return cls.retrieve(id) == None
+        else:
+            raise PermissionDeniedError(request)
+        
     @classmethod
-    def retrieve(cls, id):
+    def retrieve(cls, request, id):
         """
         Retrieves an object by its id.
+        
+        Not exposed via API, used internally only.
         """
-        return cls.gql("WHERE id = :id", id=id).get()
+        if cls.public_read or request.authenticate():
+            return cls.gql("WHERE id = :id", id=id).get()
+        else:
+            raise PermissionDeniedError(request)
     
     @classmethod
-    def list(cls, max_keys=50, *args, **kwargs):
+    def list(cls, request, max_keys=50):
         """
         Default `list` method. Takes a max_keys argument to limit
         the size of the result set.
         """
-        return cls.all().fetch(max_keys)
+        if cls.public_read or request.authenticate():
+            return cls.all().fetch(max_keys)
+        else:
+            raise PermissionDeniedError(request)
 
     # --------------
     # Helper Methods

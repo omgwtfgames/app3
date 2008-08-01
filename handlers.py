@@ -1,6 +1,6 @@
 from google.appengine.ext import webapp, db
 import app3
-from app3.exceptions import InvalidMethodError, ResourceNotFoundError, InvalidResourceError, InvalidPathError
+from app3.exceptions import InvalidMethodError, ResourceNotFoundError, InvalidResourceError, InvalidPathError, PermissionDeniedError
 
 # For serializing the result:
 from django.utils import simplejson
@@ -29,19 +29,15 @@ class RestHandler(webapp.RequestHandler, app3.Dispatcher):
         self.dispatch_request()
         
     def dispatch_request(self):
-        # Normalize the request parameters to have string keys rather than unicode
-        # Dictionaries cannot have unicode keys.
-        params = dict([(str(key), self.request.get(key)) for key in self.request.params])
-        
-        if "format" in params:
-            format = params["format"]
-            del params["format"]
-        else:
-            format = "json"
+        request = app3.App3Request(self.request, self.secret_key)
         
         resource = None
         try:
-            resource = self.dispatch(self.request.path, self.request.method, params)
+            resource = self.dispatch(request)
+            
+        except PermissionDeniedError, e:
+            self.error(401)
+            resource = e.error
         
         except ResourceNotFoundError, e:
             self.error(404)
@@ -63,21 +59,21 @@ class RestHandler(webapp.RequestHandler, app3.Dispatcher):
             self.error(404)
             resource = e.error
         
-        except Exception, e:
-            self.error(500)
-            resource = e
+        #except Exception, e:
+            #self.error(500)
+            #resource = e.message
         
         resource = self.flatten(resource)
         
-        if format == "json":
+        if request.format == "json":
             self.response.headers["Content-Type"] = "application/json"
             out = simplejson.dumps(resource)
         
-        elif format == "yaml":
+        elif request.format == "yaml":
             self.response.headers["Content-Type"] = "text/yaml"
             out = yaml.safe_dump(resource)
         
-        elif format == "python":
+        elif request.format == "python":
             self.response.headers["Content-Type"] = "text/python"
             out = str(resource)
         

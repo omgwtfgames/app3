@@ -3,37 +3,33 @@ from datetime import datetime
 
 TIMEFORMAT = "%a, %d %b %Y %H:%M:%S +0000"
 
-def generate_auth_param(secret_key, path, params=None, timestamp=None):
+def generate_auth(request):
     """
-    Given your secret key, the path you are trying to query, and
-    the parameters for querying, generates an authentication value
-    that should be sent along with the request as 'app3_auth' to 
-    allow you to access private records.
-    
     The timestamp format should be as specified in RFC 2822 and in UTC:
         "%a, %d %b %Y %H:%M:%S +0000"
         
     - See http://www.faqs.org/rfcs/rfc2822.html
-    
-    If no parameters are provided, an empty dictionary is substitued
-    If no timestamp is provied, the current time is used.
-    """    
+    """
+    params = request.params
     if not params: params = {}
-
-    params = '\n'.join(["%s=%s" % (key, val) for key, val in params.items()])
     
-    if not timestamp:
-        timestamp = datetime.utcnow().strftime(TIMEFORMAT)
+    params = '&'.join(["%s=%s" % (key, val) for key, val in params.items()])
     
-    message = unicode("%s\n%s\n%s" % (path, params, timestamp), "utf-8")
-
+    #message = unicode("%s\n%s\n%s" % (request.path, params, request.app3_timestamp), "utf-8")
+    message = "%s\n%s\n%s" % (request.path, params, request.app3_timestamp)
+    
     auth = hmac.new(
-        key = secret_key,
+        key = request.secret_key,
         msg = message,
         digestmod = sha,
     ).digest()
     
     return base64.encodestring(auth).strip()
+
+def generate_timestamp():
+    """
+    """
+    return datetime.utcnow().strftime(TIMEFORMAT)
 
 def is_within_n_minutes(sent_time, n=15):
     """
@@ -42,18 +38,13 @@ def is_within_n_minutes(sent_time, n=15):
     """
     sent_time = datetime.strptime(sent_time, TIMEFORMAT)
     
-    return not (datetime.utcnow() - sent_time).seconds > n * 60
+    return not (datetime.utcnow() - sent_time).seconds >= n * 60
     
-
-def is_authorized(auth, secret_key, path, params, timestamp):
+def is_authorized(request):
     """
-    Given an auth string, the secret key, path and params requested, and
-    the timestamp of the request, decide whether the request is authorized
-    or not.
     """
-    if not is_within_n_minutes(timestamp, 15): return False # Timeskew... Could be reply attack?
+    # Time skew... Could be replay attack?
+    if not is_within_n_minutes(request.app3_timestamp, 15): 
+        return False
     
-    provided_auth = generate_auth_param(secret_key, path, params, timestamp)
-    
-    return provided_auth == auth
-    
+    return request.app3_auth == generate_auth(request)

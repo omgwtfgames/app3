@@ -3,34 +3,30 @@ from app3.exceptions import InvalidMethodError, ResourceNotFoundError, InvalidRe
 import re
 
 class Dispatcher(object):
-    resources = []    
+    resources = []
+    secret_key = None
 
-    def dispatch(self, path, method, params):
+    def dispatch(self, request):
         """
         Given a path, method, and parameters, dispatches the REST
         request to the appropriate 
         """
         
         # List Match /resource/
-        match = re.match(r'^/(?P<resource>[a-zA-Z0-9]+)/$', path)
+        match = re.match(r'^/(?P<resource>[a-zA-Z0-9]+)/$', request.path)
         if match:
-            return self.dispatch_list(
-                resource = match.group('resource'), 
-                method = method, 
-                params = params,
-            )
+            return self.dispatch_list(request, match.group('resource'))
         
         # Resource by ID: /resource/id/
-        match = re.match(r'^/(?P<resource>[a-zA-Z0-9]+)/(?P<id>[a-zA-Z0-9]+)/$', path)
+        match = re.match(r'^/(?P<resource>[a-zA-Z0-9]+)/(?P<id>[a-zA-Z0-9]+)/$', request.path)
         if match:
             return self.dispatch_resource_by_id(
+                request = request,
                 resource = match.group('resource'),
                 id = match.group('id'),
-                method = method,
-                params = params,
             )
         
-        raise InvalidPathError({'path': path, 'method': method, 'params': params, })
+        raise InvalidPathError(request)
     
     def get_resource(self, resource):
         """
@@ -41,7 +37,7 @@ class Dispatcher(object):
         
         # Unknown resource
         if resource not in self.resources:
-            raise InvalidResourceError({'resource': resource})
+            raise InvalidResourceError({'resource': resource, 'resource': resource})
         
         resource = self.resources[resource]
         
@@ -51,43 +47,43 @@ class Dispatcher(object):
         
         return resource
     
-    def dispatch_list(self, resource, method, params):
+    def dispatch_list(self, request, resource):
         """
         Returns a list of resource objects when possible.
         """
         resource = self.get_resource(resource)()
         
-        if method == "GET":
-            return resource.list(**params)
+        if request.method == "GET":
+            return resource.list(request)
         
         else: # Unknown method
-            raise InvalidMethodError({'method': method, 'resource': resource, 'params': params, })
+            raise InvalidMethodError(request)
     
-    def dispatch_resource_by_id(self, resource, id, method, params):
+    def dispatch_resource_by_id(self, request, resource, id):
         """
         Retrieves a resource by ID and gets, updates, creates, or deletes it
         based on the method provided.
         """
         resource_type = self.get_resource(resource)
-        resource = resource_type.retrieve(id)
+        resource = resource_type.retrieve(request, id)
         
-        if method == "GET":
+        if request.method == "GET":
             if resource: # Retrieve an existing resource
-                return resource.get(**params)
+                return resource.get(request)
             else:
-                raise ResourceNotFoundError({'method': method, 'resource': resource, 'id': id, 'params': params, })
+                raise ResourceNotFoundError(request)
         
-        elif method == "POST":
+        elif request.method == "POST":
             if resource: # Update an existing resource
-                return resource.update(**params)
+                return resource.update(request)
             else: # Create a new resource
-                return resource_type.new(id, **params)
+                return resource_type.new(request, id)
         
-        elif method == "DELETE":
+        elif request.method == "DELETE":
             if resource: # Delete an existing resource
-                return resource.delete(**params)
+                return resource.delete(request)
             else:
-                raise ResourceNotFoundError({'method': method, 'resource': resource, 'id': id, 'params': params, })
+                raise ResourceNotFoundError(request)
         
         else: # Unknown method!
-            raise InvalidMethodError({'method': method, 'resource': resource, 'id': id, 'params': params, })
+            raise InvalidMethodError(request)
