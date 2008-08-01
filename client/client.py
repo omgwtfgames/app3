@@ -1,8 +1,8 @@
 import httplib
-import auth
+from app3.auth import generate_auth
 import random, time
 
-class Request(object):
+class App3Request(object):
     def __init__(self, secret_key, path, params):
         self.secret_key = secret_key
         self.path = path
@@ -102,9 +102,9 @@ class App3Client(object):
         if not params: params = {}
         
         if self.__secret_key:
-            request = Request(self.__secret_key, url, params)
+            request = App3Request(self.__secret_key, url, params)
             headers = {
-                'App3-Auth': auth.generate_auth(request),
+                'App3-Auth': generate_auth(request),
                 'App3-Timestamp': request.app3_timestamp,
             }
         else: 

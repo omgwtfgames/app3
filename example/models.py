@@ -8,3 +8,4 @@ resources = {
     'person': Person,
 }
 
+secret_key = 'correct_password'

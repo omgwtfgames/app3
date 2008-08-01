@@ -4,10 +4,9 @@ from google.appengine.ext import webapp
 import app3
 
 # Set up our REST resources
-from models import resources
 import models
-app3.RestHandler.resources = resources
-
+app3.RestHandler.resources = models.resources
+app3.RestHandler.secret_key = models.secret_key
 
 def main():
     # Create the AppEngine WSGI Application
