@@ -29,6 +29,10 @@ class RestHandler(webapp.RequestHandler, app3.Dispatcher):
         self.dispatch_request()
         
     def dispatch_request(self):
+        """
+        Dispatches the request to the dispatcher, which returns
+        the correct resource or raises a specified exception.
+        """
         request = app3.App3Request(self.request, self.secret_key)
         
         resource = None

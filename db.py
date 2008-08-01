@@ -39,8 +39,7 @@ class ResourceModel(app3.Resource, db.Expando):
     @classmethod
     def new(cls, request, id):
         """
-        Default `new` method. Takes all the kwargs provided
-        and pushes them into the database.
+        Creates a new resource with the specified ID.
         """
         # Must have data to put:
         if not request.params: return False
@@ -70,6 +69,9 @@ class ResourceModel(app3.Resource, db.Expando):
             raise PermissionDeniedError(request)
 
     def update(self, request):
+        """
+        Updates an existing resource.
+        """
         # Nothing to update, short circuit:
         if self.public_write or request.authenticate():
             if not request.params: return True
@@ -116,8 +118,6 @@ class ResourceModel(app3.Resource, db.Expando):
     def exists(cls, request, id):
         """
         Returns whether the object exists or not
-        
-        Not exposed via API, used internally only.
         """
         if cls.public_read or request.authenticate():
             return cls.retrieve(id) == None
@@ -128,8 +128,6 @@ class ResourceModel(app3.Resource, db.Expando):
     def retrieve(cls, request, id):
         """
         Retrieves an object by its id.
-        
-        Not exposed via API, used internally only.
         """
         if cls.public_read or request.authenticate():
             return cls.gql("WHERE id = :id", id=id).get()

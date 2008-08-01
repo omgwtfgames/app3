@@ -28,6 +28,7 @@ def generate_auth(request):
 
 def generate_timestamp():
     """
+    Generates a timestamp in the standard format.
     """
     return datetime.utcnow().strftime(TIMEFORMAT)
 
@@ -42,9 +43,15 @@ def is_within_n_minutes(sent_time, n=15):
     
 def is_authorized(request):
     """
+    Returns whether a user is authorized based on the request.
     """
+    # Need all of the headers to have been passed for authentication
+    if not all( (request.app3_auth, request.app3_timestamp) ):
+        return False
+    
     # Time skew... Could be replay attack?
     if not is_within_n_minutes(request.app3_timestamp, 15): 
         return False
     
+    # Check whether we generate the same auth header as they did
     return request.app3_auth == generate_auth(request)
