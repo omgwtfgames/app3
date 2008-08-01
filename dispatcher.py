@@ -20,19 +20,23 @@ class Dispatcher(object):
                 params = params,
             )
         
-        # Resource by ID: /resource/##/
-        match = re.match(r'^/(?P<resource>[a-zA-Z0-9]+)/(?P<id>\d+)/$', path)
+        # Resource by ID: /resource/id/
+        match = re.match(r'^/(?P<resource>[a-zA-Z0-9]+)/(?P<id>[a-zA-Z0-9]+)/$', path)
         if match:
             return self.dispatch_resource_by_id(
                 resource = match.group('resource'),
-                id = long(match.group('id')),
+                id = match.group('id'),
                 method = method,
                 params = params,
             )
         
         raise InvalidPathError({'path': path, 'method': method, 'params': params, })
     
-    def get_resource(self, resource, id=None):
+    def get_resource(self, resource):
+        """
+        Given a resource name, return the ResourceModel object or raise
+        an exception.
+        """
         resource_name = resource
         
         # Unknown resource
@@ -45,41 +49,45 @@ class Dispatcher(object):
         if not issubclass(resource, ResourceModel): 
             raise InvalidResourceError({'resource': resource, 'resource_name': resource_name})
         
-        if id:         
-            resource = resource.gql("WHERE id = :id", id=id).get()
-            
-            # Resource by that ID not found - Should return a proper 404
-            if not resource: 
-                raise ResourceNotFoundError({'resource': resource, 'id': id})
-        
         return resource
     
-    def dispatch_list(self, resource, method, params):        
-        resouce = self.get_resource(resource)()
+    def dispatch_list(self, resource, method, params):
+        """
+        Returns a list of resource objects when possible.
+        """
+        resource = self.get_resource(resource)()
         
-        if method == "GET" and hasattr(resource, "list"):
+        if method == "GET":
             return resource.list(**params)
         
-        # Creating a new resource
-        elif method == "POST":
-            resource = resource()
-            if hasattr(resource, "new"):
-                return resource.new(**params)
-            
         else: # Unknown method
             raise InvalidMethodError({'method': method, 'resource': resource, 'params': params, })
     
     def dispatch_resource_by_id(self, resource, id, method, params):
-        resource = self.get_resource(resource, id)
+        """
+        Retrieves a resource by ID and gets, updates, creates, or deletes it
+        based on the method provided.
+        """
+        resource_type = self.get_resource(resource)
+        resource = resource_type.retrieve(id)
         
-        if method == "GET" and hasattr(resource, "get"): 
-            return resource.get(**params)
+        if method == "GET":
+            if resource: # Retrieve an existing resource
+                return resource.get(**params)
+            else:
+                raise ResourceNotFoundError({'method': method, 'resource': resource, 'id': id, 'params': params, })
         
-        elif method == "POST" and hasattr(resource, "update"):
-            return resource.update(**params)
+        elif method == "POST":
+            if resource: # Update an existing resource
+                return resource.update(**params)
+            else: # Create a new resource
+                return resource_type.new(id, **params)
         
-        elif method == "DELETE" and hasattr(resource, "delete"):
-            return resource.delete(**params)
+        elif method == "DELETE":
+            if resource: # Delete an existing resource
+                return resource.delete(**params)
+            else:
+                raise ResourceNotFoundError({'method': method, 'resource': resource, 'id': id, 'params': params, })
         
         else: # Unknown method!
             raise InvalidMethodError({'method': method, 'resource': resource, 'id': id, 'params': params, })

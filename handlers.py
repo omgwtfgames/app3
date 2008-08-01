@@ -29,15 +29,15 @@ class RestHandler(webapp.RequestHandler, app3.Dispatcher):
         self.dispatch_request()
         
     def dispatch_request(self):
-        params = {}
-        for key in self.request.params:
-            params[str(key)] = self.request.get(key)
-            
+        # Normalize the request parameters to have string keys rather than unicode
+        # Dictionaries cannot have unicode keys.
+        params = dict([(str(key), self.request.get(key)) for key in self.request.params])
+        
         if "format" in params:
             format = params["format"]
             del params["format"]
         else:
-            format = "text"
+            format = "json"
         
         resource = None
         try:
@@ -49,7 +49,7 @@ class RestHandler(webapp.RequestHandler, app3.Dispatcher):
         
         except InvalidMethodError, e:
             self.error(500)
-            resouce = e.error
+            resource = e.error
         
         except InvalidResourceError, e:
             self.error(404)
@@ -65,7 +65,7 @@ class RestHandler(webapp.RequestHandler, app3.Dispatcher):
         
         except Exception, e:
             self.error(500)
-            resource = e.error
+            resource = e
         
         resource = self.flatten(resource)
         
@@ -124,6 +124,9 @@ class RestHandler(webapp.RequestHandler, app3.Dispatcher):
             for key in obj:
                 copy[key] = self.flatten(obj[key], depth+1)
             return copy
+        
+        elif isinstance(obj, db.Model): # If it is a model, go down one level:
+            return dict([(key, getattr(obj, key)) for key in obj.properties()])
         
         else: 
             return obj
