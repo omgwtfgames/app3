@@ -1,5 +1,5 @@
 import httplib
-from app3.auth import generate_auth
+from app3.auth import generate_auth, generate_timestamp
 import random, time
 
 class App3Request(object):
@@ -7,7 +7,7 @@ class App3Request(object):
         self.secret_key = secret_key
         self.path = path
         self.params = params
-        self.app3_timestamp = auth.generate_timestamp()
+        self.app3_timestamp = generate_timestamp()
 
 class App3Client(object):
     """
