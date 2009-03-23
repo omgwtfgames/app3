@@ -13,9 +13,7 @@ def generate_auth(request):
     params = request.params
     if not params: params = {}
     
-    params = '&'.join(["%s=%s" % (key, val) for key, val in params.items()])
-    
-    #message = unicode("%s\n%s\n%s" % (request.path, params, request.app3_timestamp), "utf-8")
+    params = '&'.join(["%s=%s" % (key, params[key]) for key in sorted(params.keys())])
     message = "%s\n%s\n%s" % (request.path, params, request.app3_timestamp)
     
     auth = hmac.new(
