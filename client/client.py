@@ -120,7 +120,4 @@ class App3Client(object):
         
         params = self.__format_params(params)
         self.__client.request(method, url, params, headers)
-        response = self.__client.getresponse()
-        self.__client.close()
-        
-        return response
+        return self.__client.getresponse()
