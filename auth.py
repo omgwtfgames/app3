@@ -6,7 +6,10 @@
 # This software is licensed as described in the file COPYING.txt,
 # which you should have received as part of this distribution.
 
-import hmac, sha, base64
+import base64
+import hashlib
+import hmac
+import logging
 from datetime import datetime
 
 TIMEFORMAT = "%a, %d %b %Y %H:%M:%S +0000"
@@ -27,7 +30,7 @@ def generate_auth(request):
     auth = hmac.new(
         key = request.secret_key,
         msg = message,
-        digestmod = sha,
+        digestmod = hashlib.sha256,
     ).digest()
     
     return base64.encodestring(auth).strip()
@@ -44,8 +47,8 @@ def is_within_n_minutes(sent_time, n=15):
     now. (All times are in UTC)
     """
     sent_time = datetime.strptime(sent_time, TIMEFORMAT)
-    
-    return not (datetime.utcnow() - sent_time).seconds >= n * 60
+    diff = abs(datetime.utcnow() - sent_time)
+    return diff.seconds < n * 60
     
 def is_authorized(request):
     """
@@ -53,11 +56,17 @@ def is_authorized(request):
     """
     # Need all of the headers to have been passed for authentication
     if not all( (request.app3_auth, request.app3_timestamp) ):
+        logging.info('Failed authorization: missing headers.')
         return False
     
     # Time skew... Could be replay attack?
-    if not is_within_n_minutes(request.app3_timestamp, 15): 
+    if not is_within_n_minutes(request.app3_timestamp, 15):
+        logging.info('Failed authorization: timestamp expired.')
         return False
     
     # Check whether we generate the same auth header as they did
-    return request.app3_auth == generate_auth(request)
+    if request.app3_auth != generate_auth(request):
+        logging.info('Failed authorization: auth mismatch.')
+        return False
+    
+    return True
