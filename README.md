@@ -1,3 +1,6 @@
+Exported from Google Code: https://code.google.com/p/app3/
+
+----
 # app3
 App3 is a flexible REST interface to the AppEngine Datastore
 
